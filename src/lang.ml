@@ -4,6 +4,13 @@
 *)
 type var = string
 
+type catml_type =
+  | INT
+  | BOOL
+  | PAIR of catml_type * catml_type
+  | FUN of catml_type * catml_type
+(* TODO: add recursive functions *)
+
 type expr =
   (* boolean expression forms *)
   | Bool of bool
@@ -20,7 +27,8 @@ type expr =
   | Second of expr
   | Pair of expr * expr
   (* functions *)
-  | Fun of var * expr
+  | Fun of var * catml_type * expr
+  | Fix of var * catml_type * catml_type * var * expr
   | Apply of expr * expr
   (* conditional expression form *)
   | If of expr * expr * expr
@@ -63,10 +71,15 @@ let rec subst (x, v, e) : expr =
   | If (e0, e1, e2) -> If (subst (x, v, e0), subst (x, v, e1), subst (x, v, e2))
   | Let (y, e1, e2) ->
       Let (y, subst (x, v, e1), if x = y then e2 else subst (x, v, e2))
-  | Fun (y, e) ->
+  | Fun (y, tau, e) ->
       begin match x = y with
-      | true -> Fun (y, e)
-      | false -> Fun (y, subst (x, v, e))
+      | true -> Fun (y, tau, e)
+      | false -> Fun (y, tau, subst (x, v, e))
+      end
+  | Fix (f, t1, t2, y, e) ->
+      begin match x = y || x = f with
+      | true -> Fix (f, t1, t2, y, e)
+      | false -> Fix (f, t1, t2, y, subst (x, v, e))
       end
   | Apply (e1, e2) -> Apply (subst (x, v, e1), subst (x, v, e2))
 
@@ -80,7 +93,7 @@ type step_result = Step of expr | NotReducible
 *)
 let rec step (e : expr) : step_result =
   match e with
-  | Bool _ | Int _ | Var _ | Fun _ -> NotReducible
+  | Bool _ | Int _ | Var _ | Fun _ | Fix _ -> NotReducible
   (*cmp-not*)
   | Not (Bool b) -> Step (Bool (not b))
   (*ctx-not*)
@@ -191,7 +204,10 @@ let rec step (e : expr) : step_result =
           if is_val e1 then Step (subst (x, e1, e2)) else NotReducible
       end
   (*cmp-app*)
-  | Apply (Fun (x, e), v) -> Step (subst (x, v, e))
+  | Apply (Fun (x, tau, e), v) -> Step (subst (x, v, e))
+  (*cmp-app-fix*)
+  | Apply (Fix (f, t1, t2, x, e), v) ->
+      Step (subst (f, Fix (f, t1, t2, x, e), subst (x, v, e)))
   (*ctx-app*)
   | Apply (e1, v) ->
       begin match step e1 with
@@ -211,15 +227,8 @@ let rec multistep e =
 (* Type checking *)
 (*****************)
 
-type arith_type =
-  | INT
-  | BOOL
-  | PAIR of arith_type * arith_type
-  | FUN of arith_type * arith_type
-(* TODO: add pairs and function types *)
-
 (* Define a type to represent finite maps/typing contexts *)
-type context = (var * arith_type) list
+type context = (var * catml_type) list
 
 (* empty_context : context *)
 let empty_context : context = []
@@ -232,7 +241,7 @@ let empty_context : context = []
  *    if (x,tau) is in g, return Some tau
  *    otherwise, return None
  *)
-let rec lookup (g, x) : arith_type option =
+let rec lookup (g, x) : catml_type option =
   match g with
   | [] -> None
   | (y, tp) :: g' -> if x = y then Some tp else lookup (g', x)
@@ -247,7 +256,7 @@ let rec lookup (g, x) : arith_type option =
  *)
 let extend (g, x, tp) : context = (x, tp) :: g
 
-let rec type_of_expr (g, e) : arith_type option =
+let rec type_of_expr (g, e) : catml_type option =
   match e with
   | Var x -> lookup (g, x)
   | Let (x, e1, e2) ->
@@ -297,7 +306,18 @@ let rec type_of_expr (g, e) : arith_type option =
       | Some BOOL, Some t1, Some t2 -> if t1 = t2 then Some t1 else None
       | _, _, _ -> None
       end
-  | Fun (x, e) -> _ (* impossible without changing syntax *)
+  | Fun (x, tau, e) ->
+      begin match type_of_expr (extend (g, x, tau), e) with
+      | None -> None
+      | Some tau' -> Some (FUN (tau, tau'))
+      end
+  | Fix (f, t1, t2, x, e) ->
+      let g1 = extend (g, x, t1) in
+      let g2 = extend (g1, f, FUN (t1, t2)) in
+      begin match type_of_expr (g2, e) with
+      | None -> None
+      | Some t3 -> if t2 = t3 then Some (FUN (t1, t2)) else None
+      end
   | Apply (f, v) ->
       begin match (type_of_expr (g, f), type_of_expr (g, v)) with
       | Some (FUN (t1, t2)), Some t3 -> if t1 = t3 then Some t2 else None
@@ -309,11 +329,23 @@ let rec type_of_expr (g, e) : arith_type option =
 (********************************************)
 
 (*
+  string_of_type : arith_type -> string
+  in : The type of an AST node [[t]]
+  out : The type [[t]] in string format.
+*)
+let rec string_of_type (t : catml_type) : string =
+  match t with
+  | INT -> "Int"
+  | BOOL -> "Bool"
+  | PAIR (t1, t2) -> "(" ^ string_of_type t1 ^ ", " ^ string_of_type t2 ^ ")"
+  | FUN (t1, t2) -> "(" ^ string_of_type t1 ^ " -> " ^ string_of_type t2 ^ ")"
+
+(*
   string_of_expr : expr -> string
   in : An expression AST [[e]].
   out : The concrete expression e in string format.
 *)
-let rec string_of_expr e =
+let rec string_of_expr (e : expr) : string =
   match e with
   (* TODO: extend string_of_expr *)
   | Var x -> x
@@ -334,7 +366,11 @@ let rec string_of_expr e =
   | If (e1, e2, e3) ->
       "If " ^ string_of_expr e1 ^ " Then " ^ string_of_expr e2 ^ " Else "
       ^ string_of_expr e3
-  | Fun (x, e) -> "Fun " ^ x ^ " -> " ^ string_of_expr e
+  | Fun (x, tau, e) ->
+      "Fun " ^ x ^ " : " ^ string_of_type tau ^ " -> " ^ string_of_expr e
+  | Fix (f, t1, t2, x, e) ->
+      "Fix (" ^ f ^ " : " ^ string_of_type t1 ^ " -> " ^ string_of_type t2 ^ ")"
+      ^ "." ^ x ^ " -> " ^ string_of_expr e
   | Apply (e1, e2) -> "(" ^ string_of_expr e1 ^ " " ^ string_of_expr e2 ^ ")"
 
 (*
