@@ -19,6 +19,9 @@ type expr =
   | First of expr
   | Second of expr
   | Pair of expr * expr
+  (* functions *)
+  | Fun of var * expr
+  | Apply of expr * expr
   (* conditional expression form *)
   | If of expr * expr * expr
   (* Variables and let expressions *)
@@ -60,6 +63,12 @@ let rec subst (x, v, e) : expr =
   | If (e0, e1, e2) -> If (subst (x, v, e0), subst (x, v, e1), subst (x, v, e2))
   | Let (y, e1, e2) ->
       Let (y, subst (x, v, e1), if x = y then e2 else subst (x, v, e2))
+  | Fun (y, e) ->
+      begin match x = y with
+      | true -> Fun (y, e)
+      | false -> Fun (y, subst (x, v, e))
+      end
+  | Apply (e1, e2) -> Apply (subst (x, v, e1), subst (x, v, e2))
 
 type step_result = Step of expr | NotReducible
 
@@ -71,7 +80,7 @@ type step_result = Step of expr | NotReducible
 *)
 let rec step (e : expr) : step_result =
   match e with
-  | Bool _ | Int _ | Var _ -> NotReducible
+  | Bool _ | Int _ | Var _ | Fun _ -> NotReducible
   (*cmp-not*)
   | Not (Bool b) -> Step (Bool (not b))
   (*ctx-not*)
@@ -181,6 +190,14 @@ let rec step (e : expr) : step_result =
       | NotReducible ->
           if is_val e1 then Step (subst (x, e1, e2)) else NotReducible
       end
+  (*cmp-app*)
+  | Apply (Fun (x, e), v) -> Step (subst (x, v, e))
+  (*ctx-app*)
+  | Apply (e1, v) ->
+      begin match step e1 with
+      | Step e1' -> Step (Apply (e1', v))
+      | NotReducible -> NotReducible
+      end
 
 (*
    multistep : expr -> expr
@@ -194,7 +211,11 @@ let rec multistep e =
 (* Type checking *)
 (*****************)
 
-type arith_type = INT | BOOL | PAIR of arith_type * arith_type
+type arith_type =
+  | INT
+  | BOOL
+  | PAIR of arith_type * arith_type
+  | FUN of arith_type * arith_type
 (* TODO: add pairs and function types *)
 
 (* Define a type to represent finite maps/typing contexts *)
@@ -276,6 +297,12 @@ let rec type_of_expr (g, e) : arith_type option =
       | Some BOOL, Some t1, Some t2 -> if t1 = t2 then Some t1 else None
       | _, _, _ -> None
       end
+  | Fun (x, e) -> _ (* impossible without changing syntax *)
+  | Apply (f, v) ->
+      begin match (type_of_expr (g, f), type_of_expr (g, v)) with
+      | Some (FUN (t1, t2)), Some t3 -> if t1 = t3 then Some t2 else None
+      | _ -> None
+      end
 
 (********************************************)
 (* Utility functions for working with ARITH *)
@@ -295,18 +322,20 @@ let rec string_of_expr e =
   | Bool true -> "True"
   | Bool false -> "False"
   | Int n -> string_of_int n
-  | And (e1, e2) -> "(" ^ string_of_expr e1 ^ " And " ^ string_of_expr e2 ^ ")"
-  | Or (e1, e2) -> "(" ^ string_of_expr e1 ^ " Or " ^ string_of_expr e2 ^ ")"
-  | Not e1 -> "(Not " ^ string_of_expr e1 ^ ")"
-  | Plus (e1, e2) -> "(" ^ string_of_expr e1 ^ " + " ^ string_of_expr e2 ^ ")"
-  | Mult (e1, e2) -> "(" ^ string_of_expr e1 ^ " x " ^ string_of_expr e2 ^ ")"
-  | Equal (e1, e2) -> string_of_expr e1 ^ " = " ^ string_of_expr e2 ^ ")"
-  | First e -> "(First " ^ string_of_expr e ^ ")"
+  | And (e1, e2) -> string_of_expr e1 ^ " And " ^ string_of_expr e2
+  | Or (e1, e2) -> string_of_expr e1 ^ " Or " ^ string_of_expr e2
+  | Not e1 -> "Not " ^ string_of_expr e1
+  | Plus (e1, e2) -> string_of_expr e1 ^ " + " ^ string_of_expr e2
+  | Mult (e1, e2) -> string_of_expr e1 ^ " x " ^ string_of_expr e2
+  | Equal (e1, e2) -> string_of_expr e1 ^ " = " ^ string_of_expr e2
+  | First e -> "First " ^ string_of_expr e
   | Second e -> "Second " ^ string_of_expr e
   | Pair (e1, e2) -> "(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2 ^ ")"
   | If (e1, e2, e3) ->
       "If " ^ string_of_expr e1 ^ " Then " ^ string_of_expr e2 ^ " Else "
       ^ string_of_expr e3
+  | Fun (x, e) -> "Fun " ^ x ^ " -> " ^ string_of_expr e
+  | Apply (e1, e2) -> "(" ^ string_of_expr e1 ^ " " ^ string_of_expr e2 ^ ")"
 
 (*
   pretty_trace : expr -> bool -> unit
