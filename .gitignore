@@ -1,0 +1,3 @@
+_build
+shell.nix
+.envrc
