@@ -15,6 +15,9 @@ rule read =
   | "False" { FALSE }
   | "*" { TIMES }
   | "+" { PLUS }
+  | "And" { AND }
+  | "Or" { OR }
+  | "Not" { NOT }
   | "(" { LPAREN }
   | ")" { RPAREN }
   | "Let" { LET }

@@ -1,6 +1,4 @@
 (lang dune 3.23)
-
-(name CatML)
 (using menhir 3.0)
 
 

@@ -345,7 +345,7 @@ let rec string_of_type (t : catml_type) : string =
   in : An expression AST [[e]].
   out : The concrete expression e in string format.
 *)
-let rec string_of_expr (e : expr) : string =
+let rec string_of_expr (e : expr) =
   match e with
   (* TODO: extend string_of_expr *)
   | Var x -> x
@@ -392,7 +392,7 @@ let rec pretty_trace e stepper =
         Printf.printf "  (Bad, Stuck Expression)\n";
         flush stdout
     | Step e' ->
-        Printf.printf "->\n";
+        Printf.printf " ->\n";
         flush stdout;
         pretty_trace e' stepper
 
