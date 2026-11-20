@@ -1,0 +1,10 @@
+Let double =
+  Fun f : (Int -> Int) =
+  Fun x : Int =
+  2 * f x
+In
+Let id =
+  Fun x : Int = x
+In
+Let doubled_id = double id In
+doubled_id 5 = 10

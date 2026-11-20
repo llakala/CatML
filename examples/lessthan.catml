@@ -1,0 +1,38 @@
+Let lte =
+  Fun x : Int =
+  Fun y : Int =
+  Let f =
+    Fix f x' : Int -> (Int -> Bool) =
+    Fun y' : Int =
+    If x' = y Then
+      True
+    Else If y' = x Then
+      False
+    Else
+      f (x' + 1) (y' + 1)
+  In
+  f x y
+In
+Let lt =
+  Fun x : Int =
+  Fun y : Int =
+  If x = y Then False Else lte x y
+In
+Let gt =
+  Fun x : Int =
+  Fun y : Int =
+  Not lte x y
+In
+Let gte =
+  Fun x : Int =
+  Fun y : Int =
+  If x = y Then True Else Not (lte x y)
+In
+lte 5 11
+And gt 14 10
+And gte 11 -8
+And lt -20 -2
+And gte 5 5
+And lte 5 5
+And Not lt 5 5
+And Not gt 5 5
