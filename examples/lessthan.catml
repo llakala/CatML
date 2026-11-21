@@ -2,14 +2,17 @@ Let lte =
   Fun x : Int =
   Fun y : Int =
   Let f =
-    Fix f x' : Int -> (Int -> Bool) =
-    Fun y' : Int =
-    If x' = y Then
-      True
-    Else If y' = x Then
-      False
-    Else
-      f (x' + 1) (y' + 1)
+    Fix (
+      Fun f : Int -> Int -> Bool =
+      Fun x' : Int =
+      Fun y' : Int =
+      If x' = y Then
+        True
+      Else If y' = x Then
+        False
+      Else
+        f (x' + 1) (y' + 1)
+    )
   In
   f x y
 In

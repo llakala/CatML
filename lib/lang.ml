@@ -27,7 +27,7 @@ type expr =
   | Pair of expr * expr
   (* functions *)
   | Fun of var * expr_type * expr
-  | Fix of var * var * expr_type * expr_type * expr
+  | Fix of expr
   | Apply of expr * expr
   (* conditional expression form *)
   | If of expr * expr * expr
@@ -46,7 +46,6 @@ let rec is_val e : bool =
   | Bool _ -> true
   | Pair (e1, e2) -> is_val e1 && is_val e2
   | Fun (x, t, e) -> true
-  | Fix (f, x, t1, t2, e) -> true
   | _ -> false
 
 (*************************)
@@ -74,11 +73,7 @@ let rec subst (x, v, e) : expr =
       | true -> Fun (y, tau, e)
       | false -> Fun (y, tau, subst (x, v, e))
     )
-  | Fix (f, y, t1, t2, e) ->
-    ( match x = y || x = f with
-      | true -> Fix (f, y, t1, t2, e)
-      | false -> Fix (f, y, t1, t2, subst (x, v, e))
-    )
+  | Fix e -> Fix (subst (x, v, e))
   | Apply (e1, e2) -> Apply (subst (x, v, e1), subst (x, v, e2))
 
 type step_result =
@@ -93,7 +88,7 @@ type step_result =
 *)
 let rec step (e : expr) : step_result =
   match e with
-  | Bool _ | Int _ | Var _ | Fun _ | Fix _ -> NotReducible
+  | Bool _ | Int _ | Var _ | Fun _ -> NotReducible
   (*cmp-not*)
   | Not (Bool b) -> Step (Bool (not b))
   (*ctx-not*)
@@ -206,13 +201,19 @@ let rec step (e : expr) : step_result =
     )
   (*cmp-app*)
   | Apply (Fun (x, tau, e), v) -> Step (subst (x, v, e))
-  (*cmp-app-fix*)
-  | Apply (Fix (f, x, t1, t2, e), v) ->
-    Step (subst (f, Fix (f, x, t1, t2, e), subst (x, v, e)))
   (*ctx-app*)
   | Apply (e1, v) ->
     ( match step e1 with
       | Step e1' -> Step (Apply (e1', v))
+      | NotReducible -> NotReducible
+    )
+  (*
+    custom extended fix
+    *)
+  | Fix (Fun (self, t0, e)) -> Step (subst (self, Fix (Fun (self, t0, e)), e))
+  | Fix e ->
+    ( match step e with
+      | Step e' -> Step (Fix e')
       | NotReducible -> NotReducible
     )
 
@@ -315,12 +316,14 @@ let rec type_of_expr (g, e) : (expr_type, expr) result =
       | Ok tau' -> Ok (FUN (tau, tau'))
       | Error e' -> Error e'
     )
-  | Fix (f, x, t1, t2, e) ->
-    let g1 = extend (g, x, t1) in
-    let g2 = extend (g1, f, FUN (t1, t2)) in
-    ( match type_of_expr (g2, e) with
-      | Ok t3 -> if t2 = t3 then Ok (FUN (t1, t2)) else Error e
-      | Error e' -> Error e'
+  | Fix e ->
+    ( match e with
+      | Fun (self, tau, e) ->
+        ( match type_of_expr (extend (g, self, tau), e) with
+          | Ok tau' -> if tau = tau' then Ok tau else Error e
+          | Error e' -> Error e'
+        )
+      | _ -> Error (Fix e)
     )
   | Apply (f, v) ->
     ( match type_of_expr (g, f), type_of_expr (g, v) with
@@ -378,18 +381,7 @@ let rec string_of_expr (e : expr) =
     ^ ")"
   | Fun (x, tau, e) ->
     "(Fun " ^ x ^ " : " ^ string_of_type tau ^ " = " ^ string_of_expr e ^ ")"
-  | Fix (f, x, t1, t2, e) ->
-    "(Fix "
-    ^ f
-    ^ " "
-    ^ x
-    ^ " : "
-    ^ string_of_type t1
-    ^ " -> "
-    ^ string_of_type t2
-    ^ " = "
-    ^ string_of_expr e
-    ^ ")"
+  | Fix e -> "(Fix " ^ string_of_expr e ^ ")"
   | Apply (e1, e2) -> string_of_expr e1 ^ " " ^ string_of_expr e2
 
 (*

@@ -1,0 +1,3 @@
+Fix (
+  Fun self : (Int, Int) = (1, First self)
+)

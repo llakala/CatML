@@ -1,5 +1,7 @@
 Let factorial =
-  Fix f x : Int -> Int =
-    If x = 0 Then 1 Else x * f (x + -1)
-In
-factorial 5
+  Fix (
+    Fun f : Int -> Int =
+    Fun x : Int =
+      If x = 0 Then 1 Else x * f (x + -1)
+  )
+In factorial 5

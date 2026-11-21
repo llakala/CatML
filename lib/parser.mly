@@ -39,7 +39,8 @@ open Lang
 %left OR
 %left AND
 %left NOT
-%nonassoc ID INT LPAREN TRUE FALSE LET FUN FIX IF FIRST SECOND ARROW COMMA
+%nonassoc ID INT LPAREN TRUE FALSE LET FUN FIX IF FIRST SECOND COMMA
+%right ARROW
 %nonassoc apply
 
 %start <Lang.expr> prog
@@ -64,7 +65,7 @@ expr:
   | LET; x = ID; EQUALS; e1 = expr; IN; e2 = expr   { Let (x, e1, e2) }
   | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr { If (e1, e2, e3) }
   | FUN; x = ID; COLON; t = expr_type; EQUALS; e = expr; { Fun (x, t, e) }
-  | FIX; f = ID; x = ID; COLON; t1 = expr_type; ARROW; t2 = expr_type; EQUALS; e = expr; { Fix (f, x, t1, t2, e) }
+  | FIX; e = expr; { Fix (e) }
   | e1 = expr; e2 = expr; %prec apply { Apply(e1, e2) }
   | FIRST; e = expr { First(e) }
   | SECOND; e = expr { Second(e) }
