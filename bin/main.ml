@@ -43,6 +43,7 @@ let () =
                   | Ok e' ->
                     print_endline ("Evaluation result:\n" ^ Lang.string_of_expr e')
                   | Error e' ->
+                    (*should be impossible with types, but you never know!*)
                     prerr_endline "Error: Reached stuck expression. Full trace: ";
                     Lang.tracer e
                 )

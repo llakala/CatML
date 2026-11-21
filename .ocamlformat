@@ -1,0 +1,5 @@
+profile = janestreet
+let-binding-spacing = compact
+break-separators=after
+break-string-literals=never
+indicate-multiline-delimiters = closing-on-separate-line

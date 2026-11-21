@@ -15,8 +15,4 @@ let () =
   print_test ("1 + 2 * 3", "7");
   print_test ("If False Or Not False Then -28 Else 13", "-28");
   print_test ("First (1, 2)", "1");
-  print_test
-    ( "Let factorial = Fix f x : Int -> Int = If x = 0 Then 1 Else x * f (x + -1) In factorial 5",
-      "120"
-    );
   ()

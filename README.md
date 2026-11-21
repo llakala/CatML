@@ -1,101 +1,78 @@
 # Assignment 8, CS3250
 
-TODO: Update this README and fill out the reflection questions.
+This repository contains my implementation of CatML!
 
-This repository contains a (template) implementation of CatML, an ML variant used at UVM for CS3250.
+## How to interact with this program
 
-## Building this repository with `dune`
+To compile and run the program, run `dune exec bin/main.exe <filepath>`, where the filepath is a `.catml` file. For
+information about divergences from the spec, see step 3 of the reflection questions.
 
-This repository can be built with [`dune`](https://github.com/ocaml/dune), a build system for OCaml projects. It helps manage linking when your project is made up of multiple `.ml` files.
+The `examples/` directory contains several `.catml` files that can be run.
 
-### Install `dune`
-
-Check if dune is already installed via the following terminal command:
-
+```sh
+$ dune exec bin/main.exe examples/factorial.catml
+Evaluation result:
+120
 ```
-$ dune --version
-```
-
-If the command is not found, you can install it via `opam` [(detailed instructions)](https://dune.readthedocs.io/en/latest/howto/install-dune.html).
-
-```
-$ opam install dune
-$ eval $(opam config env)
-$ dune --version
-```
-
-### Build the project
-
-With `dune` installed, you can build the project by running `dune build` from the command line.
-
-```
-$ dune build
-```
-
-You can also access the project modules by running `dune utop`, which will build the project and then open the `utop` toplevel. Different files (such as `src/lang.ml`) correspond to OCaml modules, and data structures (such as the `Var` constructor in the CatML AST) can be accessed via `CatML.Lang.Bool`, where `CatML` is the overall name of the project.
-
-### Structure of the repository
-
-```
-- <root>
-  - dune-project
-  - src
-    - dune
-    - lang.ml
-    - lexer.mll
-    - parser.mly
-    - main.ml
-  - examples
-    - example.catml
-    - factorial.catml
-```
-
-The `dune-project` plaintext file at the top level tells dune how to build your project. The file `src/dune` tells dune the name of the library (`CatML`) and the fact that we have a ocamllex file `lexer.mll` and a menhir parser specification file `parser.mly` in the `src` subdirectory.
-
-```
-(library (name CatML))
-(menhir (modules parser))
-(ocamllex lexer)
-```
-
-The files in the `src` directory include:
-
-- `lang.ml`: The main definition of the CatML language, including syntax, evaluation, and type checking
-- `lexer.mll`: The specification of the lexer used by ocamllex
-- `parser.mly`: The specification of the parser used by menhir
-- `main.ml`: Demonstration of how to access the lexer and parser generated from the above files
-
-In the `examples` directory I have included two sample CatML programs. You should write your own additional CatML programs to test your work.
-
-## Other Resources
-
-1. Parsing and lexing generators in OCaml, [OCaml Programming, Correct + Efficient + Beautiful](https://cs3110.github.io/textbook/chapters/interp/parsing.html)
-2. Parsing with OCamllex and Menhir, [Real World OCaml](https://dev.realworldocaml.org/parsing-with-ocamllex-and-menhir.html)
-3. [Dune build system reference](https://github.com/ocaml/dune)
-
-## How to interact with a CatML program
-
-TODO
-
 
 # Reflection Questions
 
-1. If you worked as a group, list all the group members.
+## If you worked as a group, list all the group members.
 
-TODO
+I worked independently.
 
-2. Did you use generative AI to assist you in implementing this project? If so, briefly explain how you used it and for which components.
+## Did you use generative AI to assist you in implementing this project? If so, briefly explain how you used it and for which components.
 
-TODO
+Not purposefully - I may have accidentally glanced at the AI Overview while googling questions, but generally I try not
+to use LLMs.
 
-3. Did you make any design decisions that we should know about?
+## Did you make any design decisions that we should know about?
 
-TODO
+I made several slight variations from the spec in terms of language syntax. For demos of these changes, see the
+examples. These include:
 
-4. Did you implement any of the extra credit features? Briefly summarize your work.
+1. The syntax for functions is changed slightly, to use `=` instead of `->`. This disambiguates the syntax from that
+   used for type annotations.
+2. `Fix` is extended to support defining a recursive definition of any value, rather than only recursive functions.
+   `examples/first.catml` demoes how this can be used to create a recursive pair. `Fix` should be called on a function
+   that expects itself, but it can still be used to create simple recursive functions (see `examples/factorial.ml`).
 
-TODO
+In terms of implementation:
+1. I rewrote the typecheck function to support basic error messages. It now returns a `Result`, where the error case
+   represents the expression that went wrong.
+2. I took care to ensure that niche parser cases are handled properly. `a -> b -> c` is parsed right-associatively as
+`a -> (b -> c)`, and operator precedence is handled such that the parsed result is never ambiguous.
+3. I implemented a small testing module, with a helper function to print a message when a test fails. I would have
+   written more tests, but I ended up transitioning to using the `examples/` directory for writing programs.
 
-5. Any feedback on the structure of this assignment?
+## Did you implement any of the extra credit features? Briefly summarize your work.
 
-TODO
+Yes - see above. I'd say I added:
+- A test suite (albeit a basic one, so maybe only a few points)
+- Useful error messages for type errors
+- A new language feature by extending fixpoints to work for any expression
+
+## Any feedback on the structure of this assignment?
+
+I think this was a really fun opportunity to build up a real program over time, and I wish more assignments like this
+were given. However, I think a few things could've made it more fun:
+
+1. I wish it had been slightly more built up as a singular project. Throughout the homeworks, we ended up writing
+   implementations of each of the components, but then we just got starter code for the whole thing, so it felt like our
+   individual implementations didn't "count". Instead, it would've been fun if we'd worked in a single Git repo the
+   entire time, slowly building up a project. Starter code could still be provided, but it'd be downloaded separately by
+   anyone who missed an assignment.
+2. Rather than doing new material this week, it would've been nice to have some work-time in class. I recognize that
+   we're probably on a tight schedule, but due dates right before Thanksgiving are always hard, and I think project time
+   in class is always really helpful for getting oriented. I ended up starting some of this later than I wished, and if
+   I had some days in class, I would've had a better sense of how much needed to be done.
+3. Having some more links on the intricacies of Menhir parsing would be nice, since it's easy to get stuck with an
+   unclear error. Personally, I found these links helpful:
+   - https://twolodzko.github.io/posts/ocaml-parser.html
+   - https://discuss.ocaml.org/t/juxtaposition-in-menhir/9782
+   - https://discuss.ocaml.org/t/how-to-resolve-parser-conflicts/9314
+   - https://cs.stackexchange.com/questions/145443/how-to-write-a-non-ambiguous-grammar-for-the-syntax-of-lambda-calculus
+   - https://ocaml.org/docs/cli-arguments
+   - https://batsov.com/articles/2022/11/27/reading-files-in-ocaml/
+
+Thanks so much :​)
